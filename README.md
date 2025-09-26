@@ -1,6 +1,6 @@
 # ontodiff
 
-his repository contains a simple implementation of a **Curious Self‑Write‑Gate** for language models.  The goal of the project is to allow a model to observe its own conversation with a user, form hypotheses about what aspects of its output matter, and persist those hypotheses as durable “self‑rules” that can influence future behaviour.
+This repository contains a simple implementation of a **Curious Self‑Write‑Gate** for language models.  The goal of the project is to allow a model to observe its own conversation with a user, form hypotheses about what aspects of its output matter, and persist those hypotheses as durable “self‑rules” that can influence future behaviour.
 
 ## Concept
 
