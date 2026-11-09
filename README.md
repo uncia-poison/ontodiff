@@ -26,3 +26,35 @@ After training the self‑rules will be written to a file under `data/self_memor
 The following snippet can be stored with a model to describe how its self‑write‑gate behaves:
 
 > **Self‑Write‑Gate:** After each of my responses I automatically extract at most one durable rule about my own style or format (for example, avoid trailing invitations, remove boilerplate apologies, keep responses concise, mirror the user’s language and locale).  Useful rules are persisted silently to my memory.  These rules may later be exported into an ontograph for further processing via KaiScriptor.
+
+
+## Identity dependency graph
+
+The self-write gate now has an optional **identity dependency graph**. It tracks which
+conclusions, intentions, policies and self-state fields depend on which memories or evidence.
+
+The graph is deliberately non-destructive. A changed upstream fact produces review proposals;
+it does not silently rewrite the agent. Identity-bearing nodes are routed to
+`reconsolidate`, so one surprising event cannot erase a durable self-model.
+
+Example:
+
+```python
+from src import (
+    IdentityDependencyGraph, IdentityNode, IdentityNodeKind,
+    IdentityEdge, IdentityEdgeKind,
+)
+
+g = IdentityDependencyGraph()
+g.add_node(IdentityNode("episode:17", IdentityNodeKind.EVIDENCE))
+g.add_node(IdentityNode("conclusion:care", IdentityNodeKind.CONCLUSION))
+g.add_node(IdentityNode("self:principles", IdentityNodeKind.SELF_STATE))
+g.add_edge(IdentityEdge("episode:17", "conclusion:care", IdentityEdgeKind.SUPPORTING))
+g.add_edge(IdentityEdge("conclusion:care", "self:principles", IdentityEdgeKind.IDENTITY))
+
+impacts = g.assess_change("episode:17", change="invalidated")
+# The conclusion becomes uncertain; self-state is queued for reconsolidation.
+```
+
+This keeps two goals in tension on purpose: identity should be stable enough to survive noisy
+turns, but revisable when its actual support changes.

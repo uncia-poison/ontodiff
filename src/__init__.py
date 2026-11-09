@@ -12,10 +12,26 @@ from .self_insights_generic import SelfInsightExtractorGeneric
 from .storage import SelfMemoryStore
 from .self_gate import SelfWriteGate
 from .config import GateConfig
+from .identity_dependencies import (
+    IdentityDependencyGraph,
+    IdentityEdge,
+    IdentityEdgeKind,
+    IdentityImpact,
+    IdentityNode,
+    IdentityNodeKind,
+    IdentityNodeStatus,
+)
 
 __all__ = [
     "SelfInsightExtractorGeneric",
     "SelfMemoryStore",
     "SelfWriteGate",
     "GateConfig",
+    "IdentityDependencyGraph",
+    "IdentityEdge",
+    "IdentityEdgeKind",
+    "IdentityImpact",
+    "IdentityNode",
+    "IdentityNodeKind",
+    "IdentityNodeStatus",
 ]
