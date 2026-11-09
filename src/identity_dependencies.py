@@ -7,6 +7,7 @@ reconsolidation so a single changed memory cannot erase a durable self-descripti
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, Iterable
@@ -89,6 +90,13 @@ _STATUS_PRIORITY = {
     IdentityNodeStatus.STALE: 4,
     IdentityNodeStatus.RETRACTED: 5,
 }
+
+
+def _impact_rank(proposal: IdentityImpact) -> tuple[int, float, int, str, str]:
+    return (
+        -_STATUS_PRIORITY[proposal.proposed_status], proposal.confidence_multiplier,
+        proposal.depth, proposal.source_id, proposal.edge_kind.value,
+    )
 
 
 class IdentityDependencyGraph:
@@ -191,15 +199,17 @@ class IdentityDependencyGraph:
             return []
 
         best: dict[str, IdentityImpact] = {}
-        queue: list[tuple[str, str, int]] = [(node_id, change, 0)]
-        visited_edges: set[tuple[str, str, str]] = set()
+        queue = deque([(node_id, change, 0)])
+        visited_edges: set[tuple[IdentityEdge, str]] = set()
 
         while queue:
-            source_id, source_change, depth = queue.pop(0)
+            source_id, source_change, depth = queue.popleft()
             if depth >= max_depth:
                 continue
             for edge in self.outgoing(source_id):
-                edge_key = (edge.source_id, edge.target_id, edge.kind.value)
+                if edge.target_id == node_id:
+                    continue
+                edge_key = (edge, source_change)
                 if edge_key in visited_edges:
                     continue
                 visited_edges.add(edge_key)
@@ -210,9 +220,7 @@ class IdentityDependencyGraph:
                     depth=depth + 1,
                 )
                 current = best.get(impact.node_id)
-                if current is None or _STATUS_PRIORITY[impact.proposed_status] > _STATUS_PRIORITY[current.proposed_status]:
-                    best[impact.node_id] = impact
-                elif current.proposed_status == impact.proposed_status and impact.confidence_multiplier < current.confidence_multiplier:
+                if current is None or _impact_rank(impact) < _impact_rank(current):
                     best[impact.node_id] = impact
 
                 next_change = {
@@ -227,6 +235,8 @@ class IdentityDependencyGraph:
         """Apply reviewed impact proposals. Callers decide when review is sufficient."""
         for impact in impacts:
             node = self.nodes[impact.node_id]
+            if node.status == IdentityNodeStatus.RETRACTED:
+                continue
             node.status = impact.proposed_status
             node.confidence = max(0.0, min(1.0, node.confidence * impact.confidence_multiplier))
 
@@ -265,6 +275,8 @@ class IdentityDependencyGraph:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "IdentityDependencyGraph":
+        if data.get("schema_version") != "ontodiff.identity-dependency.v1":
+            raise ValueError("unsupported identity dependency schema")
         graph = cls()
         for raw in data.get("nodes", []):
             graph.add_node(

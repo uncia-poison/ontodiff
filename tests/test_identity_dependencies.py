@@ -47,3 +47,24 @@ def test_supporting_dependency_lowers_confidence_without_staling():
     impact = g.assess_change("e", change="invalidated")[0]
     assert impact.proposed_status == IdentityNodeStatus.UNCERTAIN
     assert 0 < impact.confidence_multiplier < 1
+
+def test_convergent_paths_propagate_the_strongest_change_in_any_order():
+    edges = [
+        IdentityEdge("source", "soft", IdentityEdgeKind.SUPPORTING),
+        IdentityEdge("source", "hard", IdentityEdgeKind.HARD),
+        IdentityEdge("soft", "join", IdentityEdgeKind.HARD),
+        IdentityEdge("hard", "join", IdentityEdgeKind.HARD),
+        IdentityEdge("join", "dependent", IdentityEdgeKind.HARD),
+        IdentityEdge("dependent", "source", IdentityEdgeKind.HARD),
+    ]
+    results = []
+    for ordering in (edges, list(reversed(edges))):
+        g = IdentityDependencyGraph()
+        for name in ("source", "soft", "hard", "join", "dependent"):
+            g.add_node(IdentityNode(name, IdentityNodeKind.MEMORY))
+        for edge in ordering:
+            g.add_edge(edge)
+        results.append({impact.node_id: impact for impact in g.assess_change("source", change="invalidated")})
+    assert results[0] == results[1]
+    assert results[0]["dependent"].proposed_status == IdentityNodeStatus.STALE
+    assert "source" not in results[0]
